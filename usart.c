@@ -90,7 +90,6 @@ void initUSART()
     USART1_print("USART1 initialized.\n");
 }
 
-/*
 void initTimer()
 {
     // Enable interrupts
@@ -109,7 +108,7 @@ void initTimer()
 
     // Enable timer interrupts
     //TIMSK |= 1 << OCIE1A;
-    TIMSK |= 1 << TICIE1;
+    TIMSK1 |= 1 << TICIE1;
 
     // Activate Input Capture Noise Canceler
     TCCR1B |= 1 << ICNC1;
@@ -118,12 +117,39 @@ void initTimer()
 
     USART_print("Timer initialized\n");
 }
-*/
 
 ISR(USART0_RX_vect)
 {
+  // Forward received data to USART1 and send back to USART0 to make echo
     unsigned char receivedData = UDR0;
     //blinkLed(1);
+    // Wait while TX is ready
+    while(! (UCSR0A & (1 << UDRE0)));
+    UDR0 = receivedData;
+    while(! (UCSR1A & (1 << UDRE1)));
+    UDR1 = receivedData;
+    switch(receivedData) {
+    case 13: // carriage returm
+        while(! (UCSR0A & (1 << UDRE0)));
+        UDR0 = 10; // send newline in case carriage return is received
+        while(! (UCSR1A & (1 << UDRE1)));
+        UDR1 = 10; // send newline in case carriage return is received
+        break;
+    case 8: // backspace
+        while(! (UCSR0A & (1 << UDRE0)));
+        UDR0 = 127; // send newline in case carriage return is received
+        while(! (UCSR1A & (1 << UDRE1)));
+        UDR1 = 127; // send newline in case carriage return is received
+        break;
+    default:
+        break;
+    }
+}
+
+ISR(USART1_RX_vect)
+{
+  // Forward all received data to USART0
+    unsigned char receivedData = UDR1;
     // Wait while TX is ready
     while(! (UCSR0A & (1 << UDRE0)));
     UDR0 = receivedData;
@@ -135,28 +161,6 @@ ISR(USART0_RX_vect)
     case 8: // backspace
         while(! (UCSR0A & (1 << UDRE0)));
         UDR0 = 127; // send newline in case carriage return is received
-        break;
-    default:
-        break;
-    }
-}
-
-ISR(USART1_RX_vect)
-{
-    unsigned char receivedData = UDR1;
-    //blinkLed(1);
-    // Wait while TX is ready
-    while(! (UCSR1A & (1 << UDRE1)));
-    // TODO: remove it  ?
-    UDR1 = receivedData;
-    switch(receivedData) {
-    case 13: // carriage returm
-        while(! (UCSR1A & (1 << UDRE1)));
-        UDR1 = 10; // send newline in case carriage return is received
-        break;
-    case 8: // backspace
-        while(! (UCSR1A & (1 << UDRE1)));
-        UDR1 = 127; // send newline in case carriage return is received
         break;
     default:
         break;
